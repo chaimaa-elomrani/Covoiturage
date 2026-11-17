@@ -81,7 +81,4 @@ public class Passager {
 		return telephone;
 	}
 
-	public void setTelephone(String telephone) {
-		this.telephone = telephone;
-	}
 }
