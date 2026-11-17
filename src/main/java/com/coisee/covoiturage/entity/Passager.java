@@ -34,13 +34,19 @@ public class Passager {
 	@Column(name = "email", nullable = false, unique = true, length = 254)
 	private String email;
 
+	@NotBlank
+	@Size(max = 20)
+	@Column(name = "telephone", nullable = false, length = 20)
+	private String telephone;
+
 	protected Passager() {
 	}
 
-	public Passager(String prenom, String nom, String email) {
+	public Passager(String prenom, String nom, String email, String telephone) {
 		this.prenom = prenom;
 		this.nom = nom;
 		this.email = email;
+		this.telephone = telephone;
 	}
 
 	public Long getId() {
@@ -69,5 +75,13 @@ public class Passager {
 
 	public void setEmail(String email) {
 		this.email = email;
+	}
+
+	public String getTelephone() {
+		return telephone;
+	}
+
+	public void setTelephone(String telephone) {
+		this.telephone = telephone;
 	}
 }

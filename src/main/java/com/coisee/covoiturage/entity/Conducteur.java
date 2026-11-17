@@ -42,6 +42,11 @@ public class Conducteur {
 	private String email;
 
 	@NotBlank
+	@Size(max = 20)
+	@Column(name = "telephone", nullable = false, length = 20)
+	private String telephone;
+
+	@NotBlank
 	@Size(max = 50)
 	@Column(name = "numero_permis", nullable = false, length = 50)
 	private String numeroPermis;
@@ -49,10 +54,11 @@ public class Conducteur {
 	protected Conducteur() {
 	}
 
-	public Conducteur(String prenom, String nom, String email, String numeroPermis) {
+	public Conducteur(String prenom, String nom, String email, String telephone, String numeroPermis) {
 		this.prenom = prenom;
 		this.nom = nom;
 		this.email = email;
+		this.telephone = telephone;
 		this.numeroPermis = numeroPermis;
 	}
 
@@ -82,6 +88,14 @@ public class Conducteur {
 
 	public void setEmail(String email) {
 		this.email = email;
+	}
+
+	public String getTelephone() {
+		return telephone;
+	}
+
+	public void setTelephone(String telephone) {
+		this.telephone = telephone;
 	}
 
 	public String getNumeroPermis() {
