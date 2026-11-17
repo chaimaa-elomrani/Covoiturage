@@ -50,6 +50,7 @@ public class PointArret {
 
 	@NotNull
 	@DecimalMin("0.00")
+	@Digits(integer = 8, fraction = 2)
 	@Column(name = "prix_depuis_depart", nullable = false, precision = 6, scale = 2)
 	private BigDecimal prixDepuisDepart;
 
