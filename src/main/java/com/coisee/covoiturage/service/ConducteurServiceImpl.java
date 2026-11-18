@@ -3,7 +3,9 @@ package com.coisee.covoiturage.service;
 
 import com.coisee.covoiturage.dto.conducteur.ConducteurRequest;
 import com.coisee.covoiturage.dto.conducteur.ConducteurResponse;
+import com.coisee.covoiturage.entity.Conducteur;
 import com.coisee.covoiturage.exception.BusinessRuleException;
+import com.coisee.covoiturage.exception.ResourceNotFoundException;
 import com.coisee.covoiturage.mapper.ConducteurMapper;
 import com.coisee.covoiturage.repository.ConducteurRepository;
 import com.coisee.covoiturage.repository.PassagerRepository;
@@ -31,11 +33,24 @@ public class ConducteurServiceImpl implements ConducteurService{
         }
     }
 
-    private void verifierPermisDisponible(String numPermis){
-        if (conducteurRepository.existsByNumeroPermisIgnoreCase(numPermis)) {
+    private void verifyPermisDisponible(String numeroPermis){
+        if (conducteurRepository.existsByNumeroPermisIgnoreCase(numeroPermis)) {
             throw new BusinessRuleException("Ce numéro de permis est déjà utilisé.");
         }
     }
+    @Override
+    public ConducteurResponse create(ConducteurRequest request){
+        verifyEmailDisponible(request.email());
+        verifyPermisDisponible(request.numeroPermis());
 
+        Conducteur conducteur = conducteurMapper.toEntity(request);
+        return conducteurMapper.toResponse(conducteurRepository.save(conducteur));
+    }
+
+    @Override
+    public ConducteurResponse findById(Long id){
+        return conducteurRepository.findById(id).map(conducteurMapper::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Conducteur inntrouvable : " + id));
+    }
 
 }
