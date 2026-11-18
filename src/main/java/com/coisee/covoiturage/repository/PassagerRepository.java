@@ -1,10 +1,11 @@
 package com.coisee.covoiturage.repository;
 
 import com.coisee.covoiturage.entity.Passager;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface PassagerRepository {
+public interface PassagerRepository extends JpaRepository<Passager, Long> {
 
 
     boolean existsByEmailIgnoreCase(String email);
