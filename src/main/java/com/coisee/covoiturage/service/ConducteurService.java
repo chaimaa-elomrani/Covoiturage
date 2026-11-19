@@ -14,4 +14,6 @@ public interface ConducteurService {
     List<ConducteurResponse> findAll();
 
     List<ConducteurResponse> search(String searchTerm);
+
+    ConducteurResponse  update(Long id, ConducteurRequest request);
 }

@@ -12,6 +12,8 @@ import com.coisee.covoiturage.repository.PassagerRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @Transactional
 public class ConducteurServiceImpl implements ConducteurService{
@@ -52,5 +54,51 @@ public class ConducteurServiceImpl implements ConducteurService{
         return conducteurRepository.findById(id).map(conducteurMapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Conducteur inntrouvable : " + id));
     }
+
+    @Override
+    public List<ConducteurResponse>  findAll(){
+        return conducteurRepository.findAll()
+                .stream().map(conducteurMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public List<ConducteurResponse> search(String searchTerm){
+        String term = searchTerm.trim() ;
+        return conducteurRepository.findByNomContainingIgnoreCaseOrEmailIgnoreCase(term , term)
+                .stream()
+                .map(conducteurMapper::toResponse)
+                .toList();
+    }
+
+
+    private  void verifierEmailDisponiblePourModification(String email , Long id ){
+        boolean usedEmailConducteur = conducteurRepository.existsByEmailIgnoreCase(email);
+        boolean usedEmailPassager = passagerRepository.existsByEmailIgnoreCase(email);
+
+        if (usedEmailConducteur || usedEmailPassager){
+            throw  new BusinessRuleException("this email is already used");
+        }
+    }
+
+    private void verifierPermisDisponiblePourModification(String numroPermis , Long id){
+        if (conducteurRepository.existsByNumeroPermisIgnoreCaseAndIdNot(
+                numroPermis,
+                id
+        )){
+            throw  new BusinessRuleException("num permis is already used");
+        }
+    }
+    @Override
+    public ConducteurResponse  update(Long id, ConducteurRequest request){
+        Conducteur conducteur = conducteurRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("user not found"));
+        conducteurMapper.updateEntity(request , conducteur);
+        return conducteurMapper.toResponse(conducteurRepository.save(conducteur));
+    }
+
+
+
+
 
 }
