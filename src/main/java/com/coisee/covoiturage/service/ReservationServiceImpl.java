@@ -17,10 +17,13 @@ import com.coisee.covoiturage.repository.PointArretRepository;
 import com.coisee.covoiturage.repository.ReservationRepository;
 import com.coisee.covoiturage.repository.TrajetRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
 
 
@@ -104,16 +107,30 @@ public class ReservationServiceImpl implements ReservationService {
 
     }
 
+
+    private void verifierProprietaire(Reservation reservation , Long passagerId){
+        if (!reservation.getPassager().getId().equals(passagerId)){
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Cette réservation appartient à un autre passager."
+            );
+        }
+    }
+
     @Override
     public ReservationResponse findById(Long reservationId, Long passagerId) {
-         return reservationRepository.findById(passagerId)
-                 .map(reservationMapper::toResponse)
+         Reservation reservation =  reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ResourceNotFoundException("reservation not found"));
 
+         verifierProprietaire(reservation , passagerId);
+         return reservationMapper.toResponse(reservation);
     }
 
     @Override
     public List<ReservationResponse> findAllByPassagerId(Long passagerId) {
+        if (!passagerRepository.existsById(passagerId)) {
+            throw new ResourceNotFoundException("Passager introuvable.");
+        }
         return reservationRepository.findAllByPassagerIdOrderByDateReservationDesc(passagerId)
                 .stream()
                 .map(reservationMapper::toResponse)
@@ -122,6 +139,13 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public List<ReservationResponse> findAllByTrajetId(Long trajetId, Long conducteurId) {
+
+        trajetRepository.findByIdAndConducteurId(trajetId, conducteurId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Ce conducteur n’est pas propriétaire de ce trajet."
+                ));
+
         return reservationRepository.findAllByTrajetId(trajetId)
                 .stream()
                 .map(reservationMapper::toResponse)
@@ -130,6 +154,27 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public void cancel(Long reservationId, Long passagerId) {
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Réservation introuvable."));
+        verifierProprietaire(reservation , passagerId);
+        Trajet trajet = trajetRepository.findByIdForUpdate(reservation.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Trajet introuvable."));
+        if (reservation.getStatut() != StatutReservation.CONFIRMEE){
+            throw new BusinessRuleException("Cette réservation n’est pas confirmée.");
+        }
+
+        List<PointArret> points = pointArretRepository.findAllByTrajetIdOrderByOrdreAsc(trajet.getId());
+        LocalDateTime depart = points.get(0).getHeurePassage();
+        if (depart.isBefore(LocalDateTime.now().plusHours(24))){
+            throw new BusinessRuleException(
+                    "Une réservation ne peut être annulée moins de 24 heures avant le départ."
+            );
+        }
+        reservation.setStatut(StatutReservation.ANNULEE);
+
+        if (trajet.getStatut() == StatutTrajet.COMPLET){
+            trajet.setStatut(StatutTrajet.PUBLIE);
+        }
 
     }
 
