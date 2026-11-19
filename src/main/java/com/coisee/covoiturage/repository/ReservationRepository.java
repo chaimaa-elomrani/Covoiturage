@@ -23,7 +23,7 @@ public interface ReservationRepository extends JpaRepository<Reservation , Long>
     );
 
     @Query("""
-        select coalesce(sum(r.nombrePlace), 0)
+        select coalesce(sum(r.nombrePlaces), 0)
         from Reservation r 
         where r.trajet.id = :trajetId
         and r.statut = :statut 

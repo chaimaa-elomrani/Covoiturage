@@ -10,8 +10,8 @@ import com.coisee.covoiturage.enums.StatutReservation;
 import com.coisee.covoiturage.enums.StatutTrajet;
 import com.coisee.covoiturage.exception.BusinessRuleException;
 import com.coisee.covoiturage.exception.ResourceNotFoundException;
-import com.coisee.covoiturage.mapper.PassagerMapper;
 import com.coisee.covoiturage.mapper.ReservationMapper;
+import com.coisee.covoiturage.repository.ConducteurRepository;
 import com.coisee.covoiturage.repository.PassagerRepository;
 import com.coisee.covoiturage.repository.PointArretRepository;
 import com.coisee.covoiturage.repository.ReservationRepository;
@@ -33,14 +33,16 @@ public class ReservationServiceImpl implements ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final PassagerRepository passagerRepository;
+    private final ConducteurRepository conducteurRepository;
     private final TrajetRepository trajetRepository;
     private final PointArretRepository pointArretRepository;
     private final ReservationMapper reservationMapper;
 
-    public ReservationServiceImpl(ReservationRepository reservationRepository, PassagerRepository passagerRepository, TrajetRepository trajetRepository, PointArretRepository pointArretRepository, ReservationMapper reservationMapper
+    public ReservationServiceImpl(ReservationRepository reservationRepository, PassagerRepository passagerRepository, ConducteurRepository conducteurRepository, TrajetRepository trajetRepository, PointArretRepository pointArretRepository, ReservationMapper reservationMapper
     ) {
         this.reservationRepository = reservationRepository;
         this.passagerRepository = passagerRepository;
+        this.conducteurRepository = conducteurRepository;
         this.trajetRepository = trajetRepository;
         this.pointArretRepository = pointArretRepository;
         this.reservationMapper = reservationMapper;
@@ -50,6 +52,13 @@ public class ReservationServiceImpl implements ReservationService {
     public ReservationResponse reserve(ReservationRequest request) {
         Passager passager = passagerRepository.findById(request.passagerId())
                 .orElseThrow(() -> new ResourceNotFoundException("passager not found"));
+
+        if (conducteurRepository.existsByEmailIgnoreCase(passager.getEmail())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Un conducteur ne peut pas effectuer de réservation."
+            );
+        }
 
         Trajet trajet = trajetRepository.findByIdForUpdate(request.trajetId())
                 .orElseThrow(() -> new ResourceNotFoundException("trajet not found"));
@@ -139,12 +148,15 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public List<ReservationResponse> findAllByTrajetId(Long trajetId, Long conducteurId) {
+		Trajet trajet = trajetRepository.findById(trajetId)
+				.orElseThrow(() -> new ResourceNotFoundException("trajet not found"));
 
-        trajetRepository.findByIdAndConducteurId(trajetId, conducteurId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Ce conducteur n’est pas propriétaire de ce trajet."
-                ));
+		if (!trajet.getConducteur().getId().equals(conducteurId)) {
+			throw new ResponseStatusException(
+					HttpStatus.FORBIDDEN,
+					"Ce conducteur n’est pas propriétaire de ce trajet."
+			);
+		}
 
         return reservationRepository.findAllByTrajetId(trajetId)
                 .stream()
@@ -157,7 +169,7 @@ public class ReservationServiceImpl implements ReservationService {
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Réservation introuvable."));
         verifierProprietaire(reservation , passagerId);
-        Trajet trajet = trajetRepository.findByIdForUpdate(reservation.getId())
+        Trajet trajet = trajetRepository.findByIdForUpdate(reservation.getTrajet().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Trajet introuvable."));
         if (reservation.getStatut() != StatutReservation.CONFIRMEE){
             throw new BusinessRuleException("Cette réservation n’est pas confirmée.");
