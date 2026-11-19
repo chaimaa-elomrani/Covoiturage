@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface PassagerService {
 
-    PassagerResponse creer(PassagerRequest request);
+    PassagerResponse create(PassagerRequest request);
 
     PassagerResponse findById(Long id);
 
@@ -16,4 +16,5 @@ public interface PassagerService {
     PassagerResponse findByEmail(String email);
 
     PassagerResponse update(Long id, PassagerRequest request);
+
 }
