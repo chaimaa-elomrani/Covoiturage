@@ -73,7 +73,7 @@ public class ConducteurServiceImpl implements ConducteurService{
 
 
     private  void verifierEmailDisponiblePourModification(String email , Long id ){
-        boolean usedEmailConducteur = conducteurRepository.existsByEmailIgnoreCase(email);
+        boolean usedEmailConducteur = conducteurRepository.existsByEmailIgnoreCaseAndIdNot(email, id);
         boolean usedEmailPassager = passagerRepository.existsByEmailIgnoreCase(email);
 
         if (usedEmailConducteur || usedEmailPassager){
@@ -81,9 +81,9 @@ public class ConducteurServiceImpl implements ConducteurService{
         }
     }
 
-    private void verifierPermisDisponiblePourModification(String numroPermis , Long id){
+    private void verifierPermisDisponiblePourModification(String numeroPermis, Long id){
         if (conducteurRepository.existsByNumeroPermisIgnoreCaseAndIdNot(
-                numroPermis,
+                numeroPermis,
                 id
         )){
             throw  new BusinessRuleException("num permis is already used");
@@ -92,7 +92,9 @@ public class ConducteurServiceImpl implements ConducteurService{
     @Override
     public ConducteurResponse  update(Long id, ConducteurRequest request){
         Conducteur conducteur = conducteurRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("user not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Conducteur introuvable : " + id));
+        verifierEmailDisponiblePourModification(request.email(), id);
+        verifierPermisDisponiblePourModification(request.numeroPermis(), id);
         conducteurMapper.updateEntity(request , conducteur);
         return conducteurMapper.toResponse(conducteurRepository.save(conducteur));
     }
