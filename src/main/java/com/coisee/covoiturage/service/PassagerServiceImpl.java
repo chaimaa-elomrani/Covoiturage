@@ -3,6 +3,7 @@ package com.coisee.covoiturage.service;
 import com.coisee.covoiturage.dto.passager.PassagerRequest;
 import com.coisee.covoiturage.dto.passager.PassagerResponse;
 import com.coisee.covoiturage.entity.Passager;
+import com.coisee.covoiturage.exception.BusinessRuleException;
 import com.coisee.covoiturage.exception.ResourceNotFoundException;
 import com.coisee.covoiturage.mapper.PassagerMapper;
 import com.coisee.covoiturage.repository.ConducteurRepository;
@@ -29,7 +30,7 @@ public class PassagerServiceImpl implements PassagerService{
 
     private void verifyEmailDisponible(String email){
         if(passagerRepository.existsByEmailIgnoreCase(email) || conducteurRepository.existsByEmailIgnoreCase(email)){
-            throw  new RuntimeException("email is already used");
+            throw new BusinessRuleException("email is already used");
         }
     }
 
@@ -64,7 +65,7 @@ public class PassagerServiceImpl implements PassagerService{
 
     private void verifyEmailDisponibleUpdate(String email, Long id){
         if(passagerRepository.existsByEmailIgnoreCaseAndIdNot(email, id) || conducteurRepository.existsByEmailIgnoreCase(email)){
-            throw  new RuntimeException("email is already used");
+            throw new BusinessRuleException("email is already used");
         }
     }
 
@@ -74,6 +75,7 @@ public class PassagerServiceImpl implements PassagerService{
         Passager passager = passagerRepository.findById(id)
                 .orElseThrow(()-> new ResourceNotFoundException("not found"));
         verifyEmailDisponibleUpdate(request.email(), id);
+        passagerMapper.updateEntity(request, passager);
         return passagerMapper.toResponse(passagerRepository.save(passager));
     }
 }
