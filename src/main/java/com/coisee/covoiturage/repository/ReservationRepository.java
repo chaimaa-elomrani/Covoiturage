@@ -1,6 +1,5 @@
 package com.coisee.covoiturage.repository;
 
-import com.coisee.covoiturage.entity.Passager;
 import com.coisee.covoiturage.entity.Reservation;
 import com.coisee.covoiturage.enums.StatutReservation;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,6 +30,6 @@ public interface ReservationRepository extends JpaRepository<Reservation , Long>
 """)
     Long sumNombrePlaceByTrajetIdAndStatus(
             @Param("trajetId") Long trajetId ,
-            @Param("statut") Long statut
+            @Param("statut") StatutReservation statut
     );
 }

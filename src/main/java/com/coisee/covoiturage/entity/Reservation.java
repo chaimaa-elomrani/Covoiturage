@@ -102,7 +102,7 @@ public class Reservation {
 	}
 
 	public Trajet getTrajet() {
-		return trajet;
+		return this.trajet;
 	}
 
 	public void setTrajet(Trajet trajet) {
