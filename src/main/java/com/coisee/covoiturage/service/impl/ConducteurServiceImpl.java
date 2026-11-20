@@ -11,6 +11,8 @@ import com.coisee.covoiturage.mapper.ConducteurMapper;
 import com.coisee.covoiturage.repository.ConducteurRepository;
 import com.coisee.covoiturage.repository.PassagerRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +20,9 @@ import java.util.List;
 @Service
 @Transactional
 public class ConducteurServiceImpl implements ConducteurService{
+
+    private static final Logger log =
+            LoggerFactory.getLogger(ConducteurServiceImpl.class);
 
     private final ConducteurRepository conducteurRepository ;
     private final PassagerRepository passagerRepository;
@@ -32,12 +37,14 @@ public class ConducteurServiceImpl implements ConducteurService{
 
     private void verifyEmailDisponible(String email){
         if(conducteurRepository.existsByEmailIgnoreCase(email) || passagerRepository.existsByEmailIgnoreCase(email)){
+            log.warn("Création ou modification refusée : adresse email déjà utilisée.");
             throw new BusinessRuleException("cette adresse email est deja utilisé");
         }
     }
 
     private void verifyPermisDisponible(String numeroPermis){
         if (conducteurRepository.existsByNumeroPermisIgnoreCase(numeroPermis)) {
+            log.warn("Création refusée : numéro de permis déjà utilisé.");
             throw new BusinessRuleException("Ce numéro de permis est déjà utilisé.");
         }
     }
@@ -47,7 +54,9 @@ public class ConducteurServiceImpl implements ConducteurService{
         verifyPermisDisponible(request.numeroPermis());
 
         Conducteur conducteur = conducteurMapper.toEntity(request);
-        return conducteurMapper.toResponse(conducteurRepository.save(conducteur));
+        Conducteur savedConducteur = conducteurRepository.save(conducteur);
+        log.info("Conducteur créé : conducteurId={}", savedConducteur.getId());
+        return conducteurMapper.toResponse(savedConducteur);
     }
 
     @Override
@@ -78,6 +87,7 @@ public class ConducteurServiceImpl implements ConducteurService{
         boolean usedEmailPassager = passagerRepository.existsByEmailIgnoreCase(email);
 
         if (usedEmailConducteur || usedEmailPassager){
+            log.warn("Modification refusée : email déjà utilisé pour conducteurId={}", id);
             throw  new BusinessRuleException("this email is already used");
         }
     }
@@ -87,6 +97,7 @@ public class ConducteurServiceImpl implements ConducteurService{
                 numeroPermis,
                 id
         )){
+            log.warn("Modification refusée : numéro de permis déjà utilisé pour conducteurId={}", id);
             throw  new BusinessRuleException("num permis is already used");
         }
     }
@@ -97,7 +108,9 @@ public class ConducteurServiceImpl implements ConducteurService{
         verifierEmailDisponiblePourModification(request.email(), id);
         verifierPermisDisponiblePourModification(request.numeroPermis(), id);
         conducteurMapper.updateEntity(request , conducteur);
-        return conducteurMapper.toResponse(conducteurRepository.save(conducteur));
+        Conducteur updatedConducteur = conducteurRepository.save(conducteur);
+        log.info("Profil conducteur modifié : conducteurId={}", id);
+        return conducteurMapper.toResponse(updatedConducteur);
     }
 
 
