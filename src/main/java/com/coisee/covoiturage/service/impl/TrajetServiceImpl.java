@@ -171,8 +171,47 @@ public class TrajetServiceImpl implements TrajetService {
 
     }
 
+
+    private Trajet findConducteurTrajet(Long trajetId , Long conducteurId){
+        Trajet trajet =  trajetRepository.findById(trajetId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Trajet introuvable.")
+                );
+
+        if(!trajet.getConducteur().getId().equals(conducteurId)){
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Ce conducteur n’est pas propriétaire de ce trajet."
+            );
+        }
+        return trajet ;
+    }
+
+    private TrajetResponse verifierTrajetModifiable(Trajet trajet){
+        Long placesReservees =
+                reservationRepository.sumNombrePlaceByTrajetIdAndStatus(
+                  trajet.getId(),
+                        StatutReservation.CONFIRMEE
+
+        );
+        int placesRestantes =
+                trajet.getPlacesProposees() -  placesReservees.intValue();
+        return trajetMapper.toResponse(trajet , placesRestantes);
+    }
+
+
+
     @Override
     public void cancel(Long trajetId, Long conducteurId) {
+        Trajet trajet = findConducteurTrajet(trajetId, conducteurId);
+        verifierTrajetModifiable(trajet);
+
+        List<Reservation> reservations = reservationRepository.findAllByTrajetId(trajetId);
+        reservations.stream().filter(reservation ->
+                reservation.getStatut() == StatutReservation.CONFIRMEE
+        )
+                .forEach(reservation -> reservation.setStatut(StatutReservation.ANNULEE));
+        trajet.setStatut(StatutTrajet.ANNULE);
 
     }
 }
