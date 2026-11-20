@@ -1,5 +1,6 @@
-package com.coisee.covoiturage.service;
+package com.coisee.covoiturage.service.impl;
 
+import com.coisee.covoiturage.service.TrajetService;
 import com.coisee.covoiturage.dto.pointarret.PointArretRequest;
 import com.coisee.covoiturage.dto.trajet.TrajetRequest;
 import com.coisee.covoiturage.dto.trajet.TrajetResponse;
@@ -122,9 +123,6 @@ public class TrajetServiceImpl implements TrajetService {
         }
 
     }
-
-
-
 
     @Override
     public TrajetResponse publish(TrajetRequest request) {

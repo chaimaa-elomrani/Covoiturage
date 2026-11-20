@@ -1,5 +1,6 @@
-package com.coisee.covoiturage.service;
+package com.coisee.covoiturage.service.impl;
 
+import com.coisee.covoiturage.service.ReservationService;
 import com.coisee.covoiturage.dto.reservation.ReservationRequest;
 import com.coisee.covoiturage.dto.reservation.ReservationResponse;
 import com.coisee.covoiturage.entity.Passager;

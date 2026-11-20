@@ -1,5 +1,6 @@
-package com.coisee.covoiturage.service;
+package com.coisee.covoiturage.service.impl;
 
+import com.coisee.covoiturage.service.VehiculeService;
 import com.coisee.covoiturage.dto.vehicule.VehiculeRequest;
 import com.coisee.covoiturage.dto.vehicule.VehiculeResponse;
 import com.coisee.covoiturage.entity.Conducteur;
