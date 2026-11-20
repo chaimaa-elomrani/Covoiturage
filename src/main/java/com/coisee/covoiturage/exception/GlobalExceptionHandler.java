@@ -1,6 +1,8 @@
 package com.coisee.covoiturage.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,9 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(
@@ -78,6 +83,23 @@ public class GlobalExceptionHandler {
                 "Erreur de validation",
                 message,
                 "validation",
+                request
+        );
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ProblemDetail> handleUnexpectedError(
+            Exception exception,
+            HttpServletRequest request
+    ) {
+        log.error("Erreur interne pendant {} {}",
+                request.getMethod(), request.getRequestURI(), exception);
+
+        return createProblem(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Erreur interne",
+                "Une erreur inattendue est survenue.",
+                "internal-error",
                 request
         );
     }
