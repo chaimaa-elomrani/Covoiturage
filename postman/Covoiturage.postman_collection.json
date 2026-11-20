@@ -1,0 +1,133 @@
+{
+  "info": {
+    "name": "Covoiturage multi-étapes API",
+    "description": "Collection de démonstration. Démarrer PostgreSQL et l'application avant l'exécution. Remplacer les variables d'identifiants par celles renvoyées par l'API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "conducteurId", "value": "1" },
+    { "key": "passagerId", "value": "1" },
+    { "key": "vehiculeId", "value": "1" },
+    { "key": "trajetId", "value": "1" },
+    { "key": "reservationId", "value": "1" },
+    { "key": "pointMonteeId", "value": "1" },
+    { "key": "pointDescenteId", "value": "2" }
+  ],
+  "item": [
+    {
+      "name": "Conducteurs",
+      "item": [
+        {
+          "name": "Créer conducteur",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"prenom\": \"Hamid\",\n  \"nom\": \"Alaoui\",\n  \"email\": \"hamid@example.com\",\n  \"telephone\": \"0600000001\",\n  \"numeroPermis\": \"PERMIS-DEMO-001\"\n}" },
+            "url": "{{baseUrl}}/api/conducteurs"
+          }
+        },
+        {
+          "name": "Lister conducteurs",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/conducteurs" }
+        },
+        {
+          "name": "Rechercher conducteur",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/conducteurs/search?searchTerm=Hamid" }
+        }
+      ]
+    },
+    {
+      "name": "Passagers",
+      "item": [
+        {
+          "name": "Créer passager",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"prenom\": \"Salma\",\n  \"nom\": \"Demo\",\n  \"email\": \"salma@example.com\",\n  \"telephone\": \"0600000002\"\n}" },
+            "url": "{{baseUrl}}/api/passagers"
+          }
+        },
+        {
+          "name": "Rechercher passager par email",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/passagers/search?email=salma%40example.com" }
+        }
+      ]
+    },
+    {
+      "name": "Véhicules",
+      "item": [
+        {
+          "name": "Ajouter véhicule",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"marque\": \"Dacia\",\n  \"modele\": \"Logan\",\n  \"immatriculation\": \"DEMO-001\",\n  \"couleur\": \"Blanc\",\n  \"capaciteMaximale\": 4,\n  \"conducteurId\": {{conducteurId}}\n}" },
+            "url": "{{baseUrl}}/api/vehicules"
+          }
+        },
+        {
+          "name": "Lister véhicules du conducteur",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/vehicules/conducteur/{{conducteurId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Trajets",
+      "item": [
+        {
+          "name": "Publier trajet multi-étapes",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"conducteurId\": {{conducteurId}},\n  \"vehiculeId\": {{vehiculeId}},\n  \"placesProposees\": 3,\n  \"pointsArret\": [\n    { \"ville\": \"Rabat\", \"ordre\": 0, \"heurePassage\": \"2027-01-15T17:00:00\", \"prixDepuisDepart\": 0.00 },\n    { \"ville\": \"Casablanca\", \"ordre\": 1, \"heurePassage\": \"2027-01-15T18:15:00\", \"prixDepuisDepart\": 40.00 },\n    { \"ville\": \"Settat\", \"ordre\": 2, \"heurePassage\": \"2027-01-15T19:15:00\", \"prixDepuisDepart\": 70.00 },\n    { \"ville\": \"Marrakech\", \"ordre\": 3, \"heurePassage\": \"2027-01-15T21:30:00\", \"prixDepuisDepart\": 120.00 }\n  ]\n}" },
+            "url": "{{baseUrl}}/api/trajets"
+          }
+        },
+        {
+          "name": "Rechercher segment Casablanca–Settat",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/trajets/search?villeDepart=Casablanca&villeArrivee=Settat&dateDepart=2027-01-15&nombrePlaces=1&prixMax=35&page=0&size=10" }
+        },
+        {
+          "name": "Consulter trajet",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/trajets/{{trajetId}}" }
+        },
+        {
+          "name": "Terminer trajet",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/api/trajets/{{trajetId}}/finish?conducteurId={{conducteurId}}" }
+        },
+        {
+          "name": "Annuler trajet",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/api/trajets/{{trajetId}}/cancel?conducteurId={{conducteurId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Réservations",
+      "item": [
+        {
+          "name": "Réserver un segment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"passagerId\": {{passagerId}},\n  \"trajetId\": {{trajetId}},\n  \"pointMonteeId\": {{pointMonteeId}},\n  \"pointDescenteId\": {{pointDescenteId}},\n  \"nombrePlaces\": 1\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "Lister réservations du passager",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/reservations/passager/{{passagerId}}" }
+        },
+        {
+          "name": "Lister réservations du trajet (conducteur)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/reservations/trajet/{{trajetId}}?conducteurId={{conducteurId}}" }
+        },
+        {
+          "name": "Annuler réservation",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/api/reservations/{{reservationId}}/cancel?passagerId={{passagerId}}" }
+        }
+      ]
+    }
+  ]
+}
