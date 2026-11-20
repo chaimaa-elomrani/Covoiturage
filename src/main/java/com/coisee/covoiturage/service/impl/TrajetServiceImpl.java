@@ -18,6 +18,8 @@ import com.coisee.covoiturage.repository.ConducteurRepository;
 import com.coisee.covoiturage.repository.ReservationRepository;
 import com.coisee.covoiturage.repository.TrajetRepository;
 import com.coisee.covoiturage.repository.VehiculeRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -34,6 +36,9 @@ import java.util.Set;
 @Service
 @Transactional
 public class TrajetServiceImpl implements TrajetService {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(TrajetServiceImpl.class);
 
     private final TrajetRepository trajetRepository;
     private final ConducteurRepository conducteurRepository;
@@ -58,6 +63,7 @@ public class TrajetServiceImpl implements TrajetService {
 
     private void verifierParcours(List<PointArretRequest> points){
         if( points == null || points.size() < 2){
+            log.warn("Publication refusée : parcours avec moins de deux points d’arrêt.");
             throw new BusinessRuleException(
                     "Le parcours doit contenir au moins deux points d’arrêt."
             );
@@ -66,18 +72,21 @@ public class TrajetServiceImpl implements TrajetService {
        PointArretRequest depart = points.get(0);
 
         if (depart.ordre() != 0) {
+            log.warn("Publication refusée : le premier point n’a pas l’ordre 0.");
             throw new BusinessRuleException(
                     "Le premier point doit avoir l’ordre 0."
             );
         }
 
         if (!depart.heurePassage().isAfter(LocalDateTime.now())) {
+            log.warn("Publication refusée : heure de départ non future.");
             throw new BusinessRuleException(
                     "L’heure de départ doit être dans le futur."
             );
         }
 
         if (depart.prixDepuisDepart().signum() != 0) {
+            log.warn("Publication refusée : prix du départ différent de zéro.");
             throw new BusinessRuleException(
                     "Le prix du premier point doit être égal à 0."
             );
@@ -89,6 +98,7 @@ public class TrajetServiceImpl implements TrajetService {
             String ville = courant.ville().trim().toLowerCase(Locale.ROOT);
 
             if (!villes.add(ville)){
+                log.warn("Publication refusée : ville répétée dans le parcours.");
                 throw new BusinessRuleException(
                         "Une ville ne peut apparaître qu’une seule fois dans le parcours."
                 );
@@ -101,12 +111,14 @@ public class TrajetServiceImpl implements TrajetService {
             PointArretRequest previous = points.get(i - 1);
 
             if(courant.ordre() != previous.ordre()+ 1){
+                log.warn("Publication refusée : ordre des points d’arrêt invalide.");
                 throw new BusinessRuleException(
                         "Les ordres des points d’arrêt doivent se suivre."
                 );
             }
 
             if (!courant.heurePassage().isAfter(previous.heurePassage())) {
+                log.warn("Publication refusée : heures de passage non croissantes.");
                 throw new BusinessRuleException(
                         "Les heures de passage doivent être strictement croissantes."
                 );
@@ -114,6 +126,7 @@ public class TrajetServiceImpl implements TrajetService {
 
             if (courant.prixDepuisDepart()
                     .compareTo(previous.prixDepuisDepart()) <= 0) {
+                log.warn("Publication refusée : prix des points d’arrêt non croissants.");
                 throw new BusinessRuleException(
                         "Les prix depuis le départ doivent être strictement croissants."
                 );
@@ -133,18 +146,25 @@ public class TrajetServiceImpl implements TrajetService {
                 );
         Vehicule vehicule = vehiculeRepository
                 .findByIdAndConducteurId(request.vehiculeId(), conducteur.getId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Ce véhicule n’appartient pas à ce conducteur."
-                ));
+                .orElseThrow(() -> {
+                    log.warn("Publication refusée : véhicule non détenu par le conducteur, conducteurId={}, vehiculeId={}",
+                            conducteur.getId(), request.vehiculeId());
+                    return new ResponseStatusException(
+                            HttpStatus.FORBIDDEN,
+                            "Ce véhicule n’appartient pas à ce conducteur."
+                    );
+                });
 
         if (request.placesProposees() == null || request.placesProposees() < 1) {
+            log.warn("Publication refusée : nombre de places proposé inférieur à 1.");
             throw new BusinessRuleException(
                     "Le trajet doit proposer au moins une place."
             );
         }
 
         if (request.placesProposees() > vehicule.getCapacite()) {
+            log.warn("Publication refusée : places proposées supérieures à la capacité, vehiculeId={}",
+                    vehicule.getId());
             throw new BusinessRuleException(
                     "Le nombre de places proposées dépasse la capacité du véhicule."
             );
@@ -159,6 +179,8 @@ public class TrajetServiceImpl implements TrajetService {
 
         trajet.getPointsArret().forEach(point -> point.setTrajet(trajet));
         Trajet savedTrajet = trajetRepository.save(trajet);
+        log.info("Trajet publié : trajetId={}, conducteurId={}, vehiculeId={}",
+                savedTrajet.getId(), conducteur.getId(), vehicule.getId());
         return trajetMapper.toResponse(savedTrajet, savedTrajet.getPlacesProposees());
 
     }
@@ -223,6 +245,7 @@ public class TrajetServiceImpl implements TrajetService {
         Trajet trajet = trouverTrajetDuConducteur(trajetId , conducteurId);
         verifierTrajetModifiable(trajet);
         if (trajet.getPointsArret().isEmpty()) {
+            log.warn("Fin du trajet refusée : aucun point d’arrêt, trajetId={}", trajetId);
             throw new BusinessRuleException(
                     "Le trajet ne contient aucun point d’arrêt."
             );
@@ -231,12 +254,15 @@ public class TrajetServiceImpl implements TrajetService {
         LocalDateTime heureDepart = trajet.getPointsArret().get(0).getHeurePassage();
 
         if (!LocalDateTime.now().isAfter(heureDepart)) {
+            log.warn("Fin du trajet refusée avant le départ : trajetId={}, conducteurId={}",
+                    trajetId, conducteurId);
             throw new BusinessRuleException(
                     "Le trajet ne peut être terminé qu’après son heure de départ."
             );
         }
 
         trajet.setStatut(StatutTrajet.TERMINE);
+        log.info("Trajet terminé : trajetId={}, conducteurId={}", trajetId, conducteurId);
     }
 
 
@@ -249,6 +275,8 @@ public class TrajetServiceImpl implements TrajetService {
                 );
 
         if(!trajet.getConducteur().getId().equals(conducteurId)){
+            log.warn("Accès refusé au trajet : trajetId={}, conducteurId={}",
+                    trajetId, conducteurId);
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Ce conducteur n’est pas propriétaire de ce trajet."
@@ -263,6 +291,8 @@ public class TrajetServiceImpl implements TrajetService {
     private void verifierTrajetModifiable(Trajet trajet) {
         if (trajet.getStatut() != StatutTrajet.PUBLIE
                 && trajet.getStatut() != StatutTrajet.COMPLET) {
+            log.warn("Modification refusée pour le trajet : trajetId={}, statut={}",
+                    trajet.getId(), trajet.getStatut());
             throw new BusinessRuleException(
                     "Seul un trajet publié ou complet peut être terminé ou annulé."
             );
@@ -282,6 +312,8 @@ public class TrajetServiceImpl implements TrajetService {
         )
                 .forEach(reservation -> reservation.setStatut(StatutReservation.ANNULEE));
         trajet.setStatut(StatutTrajet.ANNULE);
+        log.info("Trajet annulé avec ses réservations confirmées : trajetId={}, conducteurId={}",
+                trajetId, conducteurId);
 
     }
 }
