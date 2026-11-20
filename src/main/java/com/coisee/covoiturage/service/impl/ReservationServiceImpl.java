@@ -18,6 +18,8 @@ import com.coisee.covoiturage.repository.PointArretRepository;
 import com.coisee.covoiturage.repository.ReservationRepository;
 import com.coisee.covoiturage.repository.TrajetRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -31,6 +33,9 @@ import java.util.List;
 @Service
 @Transactional
 public class ReservationServiceImpl implements ReservationService {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(ReservationServiceImpl.class);
 
     private final ReservationRepository reservationRepository;
     private final PassagerRepository passagerRepository;
@@ -55,6 +60,8 @@ public class ReservationServiceImpl implements ReservationService {
                 .orElseThrow(() -> new ResourceNotFoundException("passager not found"));
 
         if (conducteurRepository.existsByEmailIgnoreCase(passager.getEmail())) {
+            log.warn("Réservation refusée : un conducteur tente de réserver, passagerId={}",
+                    passager.getId());
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Un conducteur ne peut pas effectuer de réservation."
@@ -65,11 +72,15 @@ public class ReservationServiceImpl implements ReservationService {
                 .orElseThrow(() -> new ResourceNotFoundException("trajet not found"));
 
         if(trajet.getStatut() != StatutTrajet.PUBLIE){
+            log.warn("Réservation refusée : trajet non ouvert, trajetId={}, statut={}",
+                    trajet.getId(), trajet.getStatut());
             throw new BusinessRuleException("this trajet is not open for reservations");
         }
 
         if (reservationRepository.existsByPassagerIdAndTrajetIdAndStatut(passager.getId() , trajet.getId() , StatutReservation.CONFIRMEE))
         {
+            log.warn("Réservation refusée : réservation confirmée déjà existante, passagerId={}, trajetId={}",
+                    passager.getId(), trajet.getId());
             throw new BusinessRuleException("this user already have a confirmed reservation for this path");
         }
 
@@ -84,6 +95,8 @@ public class ReservationServiceImpl implements ReservationService {
                 ));
 
         if (pointMontee.getOrdre() >= pointDescente.getOrdre()){
+            log.warn("Réservation refusée : ordre des arrêts invalide, trajetId={}, passagerId={}",
+                    trajet.getId(), passager.getId());
             throw new BusinessRuleException(
                     "Le point de montée doit précéder le point de descente."
             );
@@ -93,6 +106,8 @@ public class ReservationServiceImpl implements ReservationService {
         Long placesRestantes = trajet.getPlacesProposees() - placeReservees ;
 
         if (request.nombrePlaces() > placesRestantes){
+            log.warn("Réservation refusée : places insuffisantes, trajetId={}, demandées={}, restantes={}",
+                    trajet.getId(), request.nombrePlaces(), placesRestantes);
             throw new BusinessRuleException("Il ne reste pas assez de places.");
         }
 
@@ -113,6 +128,8 @@ public class ReservationServiceImpl implements ReservationService {
         if (placesRestantes - request.nombrePlaces() == 0){
             trajet.setStatut(StatutTrajet.COMPLET);
         }
+        log.info("Réservation créée : reservationId={}, passagerId={}, trajetId={}, places={}",
+                res.getId(), passager.getId(), trajet.getId(), request.nombrePlaces());
         return reservationMapper.toResponse(res);
 
     }
@@ -120,6 +137,8 @@ public class ReservationServiceImpl implements ReservationService {
 
     private void verifierProprietaire(Reservation reservation , Long passagerId){
         if (!reservation.getPassager().getId().equals(passagerId)){
+            log.warn("Accès refusé à une réservation : reservationId={}, passagerId={}",
+                    reservation.getId(), passagerId);
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Cette réservation appartient à un autre passager."
@@ -153,6 +172,8 @@ public class ReservationServiceImpl implements ReservationService {
 				.orElseThrow(() -> new ResourceNotFoundException("trajet not found"));
 
 		if (!trajet.getConducteur().getId().equals(conducteurId)) {
+			log.warn("Accès refusé aux réservations d’un trajet : trajetId={}, conducteurId={}",
+					trajetId, conducteurId);
 			throw new ResponseStatusException(
 					HttpStatus.FORBIDDEN,
 					"Ce conducteur n’est pas propriétaire de ce trajet."
@@ -173,12 +194,16 @@ public class ReservationServiceImpl implements ReservationService {
         Trajet trajet = trajetRepository.findByIdForUpdate(reservation.getTrajet().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Trajet introuvable."));
         if (reservation.getStatut() != StatutReservation.CONFIRMEE){
+            log.warn("Annulation refusée : réservation non confirmée, reservationId={}, statut={}",
+                    reservationId, reservation.getStatut());
             throw new BusinessRuleException("Cette réservation n’est pas confirmée.");
         }
 
         List<PointArret> points = pointArretRepository.findAllByTrajetIdOrderByOrdreAsc(trajet.getId());
         LocalDateTime depart = points.get(0).getHeurePassage();
         if (depart.isBefore(LocalDateTime.now().plusHours(24))){
+            log.warn("Annulation refusée : délai de 24 heures dépassé, reservationId={}",
+                    reservationId);
             throw new BusinessRuleException(
                     "Une réservation ne peut être annulée moins de 24 heures avant le départ."
             );
@@ -188,6 +213,8 @@ public class ReservationServiceImpl implements ReservationService {
         if (trajet.getStatut() == StatutTrajet.COMPLET){
             trajet.setStatut(StatutTrajet.PUBLIE);
         }
+        log.info("Réservation annulée : reservationId={}, passagerId={}, trajetId={}",
+                reservationId, passagerId, trajet.getId());
 
     }
 
