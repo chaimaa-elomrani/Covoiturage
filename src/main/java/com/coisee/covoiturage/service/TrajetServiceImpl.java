@@ -58,6 +58,69 @@ public class TrajetServiceImpl implements TrajetService {
 
 
     private void verifierParcours(List<PointArretRequest> points){
+        if( points == null || points.size() < 2){
+            throw new BusinessRuleException(
+                    "Le parcours doit contenir au moins deux points d’arrêt."
+            );
+        }
+
+       PointArretRequest depart = points.get(0);
+
+        if (depart.ordre() != 0) {
+            throw new BusinessRuleException(
+                    "Le premier point doit avoir l’ordre 0."
+            );
+        }
+
+        if (!depart.heurePassage().isAfter(LocalDateTime.now())) {
+            throw new BusinessRuleException(
+                    "L’heure de départ doit être dans le futur."
+            );
+        }
+
+        if (depart.prixDepuisDepart().signum() != 0) {
+            throw new BusinessRuleException(
+                    "Le prix du premier point doit être égal à 0."
+            );
+        }
+
+        Set<String> villes = new HashSet<>();
+        for (int i = 0 ; i < points.size(); i++){
+            PointArretRequest courant = points.get(i);
+            String ville = courant.ville().trim().toLowerCase(Locale.ROOT);
+
+            if (!villes.add(ville)){
+                throw new BusinessRuleException(
+                        "Une ville ne peut apparaître qu’une seule fois dans le parcours."
+                );
+            }
+
+            if (i == 0){
+                continue;
+            }
+
+            PointArretRequest previous = points.get(i - 1);
+
+            if(courant.ordre() != previous.ordre()+ 1){
+                throw new BusinessRuleException(
+                        "Les ordres des points d’arrêt doivent se suivre."
+                );
+            }
+
+            if (!courant.heurePassage().isAfter(previous.heurePassage())) {
+                throw new BusinessRuleException(
+                        "Les heures de passage doivent être strictement croissantes."
+                );
+            }
+
+            if (courant.prixDepuisDepart()
+                    .compareTo(previous.prixDepuisDepart()) <= 0) {
+                throw new BusinessRuleException(
+                        "Les prix depuis le départ doivent être strictement croissants."
+                );
+            }
+        }
+
     }
 
 
