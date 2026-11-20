@@ -227,4 +227,42 @@ class TrajetServiceImplTest {
 
         verifyNoInteractions(trajetRepository);
     }
+
+    @Test
+    void publishShouldRejectDuplicateCitiesIgnoringCaseAndSpaces() {
+        Conducteur conducteur = mock(Conducteur.class);
+        when(conducteur.getId()).thenReturn(7L);
+        when(conducteurRepository.findById(7L))
+                .thenReturn(Optional.of(conducteur));
+
+        Vehicule vehicule = mock(Vehicule.class);
+        when(vehicule.getCapacite()).thenReturn(4);
+        when(vehiculeRepository.findByIdAndConducteurId(2L, 7L))
+                .thenReturn(Optional.of(vehicule));
+
+        LocalDateTime depart = LocalDateTime.now().plusDays(1);
+
+        TrajetRequest request = new TrajetRequest(
+                7L,
+                2L,
+                2,
+                List.of(
+                        new PointArretRequest(
+                                "Rabat", 0, depart, BigDecimal.ZERO
+                        ),
+                        new PointArretRequest(
+                                " rabat ", 1, depart.plusHours(1),
+                                new BigDecimal("40.00")
+                        )
+                )
+        );
+
+        assertThatThrownBy(() -> trajetService.publish(request))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage(
+                        "Une ville ne peut apparaître qu’une seule fois dans le parcours."
+                );
+
+        verifyNoInteractions(trajetRepository);
+    }
 }
