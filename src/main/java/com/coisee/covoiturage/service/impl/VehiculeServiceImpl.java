@@ -12,6 +12,8 @@ import com.coisee.covoiturage.repository.ConducteurRepository;
 import com.coisee.covoiturage.repository.TrajetRepository;
 import com.coisee.covoiturage.repository.VehiculeRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,6 +23,9 @@ import java.util.List;
 @Service
 @Transactional
 public class VehiculeServiceImpl implements VehiculeService {
+
+	private static final Logger log =
+			LoggerFactory.getLogger(VehiculeServiceImpl.class);
 
 	private final VehiculeRepository vehiculeRepository;
 	private final ConducteurRepository conducteurRepository;
@@ -41,6 +46,7 @@ public class VehiculeServiceImpl implements VehiculeService {
 
 	private void verifierImmatriculationDisponible(String immatriculation) {
 		if (vehiculeRepository.existsByImmatriculationIgnoreCase(immatriculation)) {
+			log.warn("Création refusée : immatriculation déjà utilisée.");
 			throw new BusinessRuleException("Cette immatriculation est déjà utilisée.");
 		}
 	}
@@ -57,6 +63,8 @@ public class VehiculeServiceImpl implements VehiculeService {
 		Vehicule vehicule = vehiculeMapper.toEntity(request);
 		vehicule.setConducteur(conducteur);
 		Vehicule savedVehicule = vehiculeRepository.save(vehicule);
+		log.info("Véhicule créé : vehiculeId={}, conducteurId={}",
+				savedVehicule.getId(), conducteur.getId());
 		return vehiculeMapper.toResponse(savedVehicule);
 	}
 
@@ -66,6 +74,8 @@ public class VehiculeServiceImpl implements VehiculeService {
 				.orElseThrow(() -> new ResourceNotFoundException("Véhicule introuvable : " + vehiculeId));
 
 		if (!vehicule.getConducteur().getId().equals(conducteurId)) {
+			log.warn("Accès refusé au véhicule : vehiculeId={}, conducteurId={}",
+					vehiculeId, conducteurId);
 			throw new ResponseStatusException(
 					HttpStatus.FORBIDDEN,
 					"Ce véhicule appartient à un autre conducteur."
@@ -100,6 +110,8 @@ public class VehiculeServiceImpl implements VehiculeService {
 				immatriculation,
 				vehiculeId
 		)) {
+			log.warn("Modification refusée : immatriculation déjà utilisée pour vehiculeId={}",
+					vehiculeId);
 			throw new BusinessRuleException("Cette immatriculation est déjà utilisée.");
 		}
 	}
@@ -115,6 +127,8 @@ public class VehiculeServiceImpl implements VehiculeService {
 
 		vehiculeMapper.updateEntity(request, vehicule);
 		Vehicule savedVehicule = vehiculeRepository.save(vehicule);
+		log.info("Véhicule modifié : vehiculeId={}, conducteurId={}",
+				vehiculeId, conducteurId);
 		return vehiculeMapper.toResponse(savedVehicule);
 	}
 
@@ -125,12 +139,16 @@ public class VehiculeServiceImpl implements VehiculeService {
 		Vehicule vehicule = trouverVehiculeEtVerifierProprietaire(vehiculeId, conducteurId);
 
 		if (trajetRepository.existsByVehiculeId(vehiculeId)) {
+			log.warn("Suppression refusée : véhicule associé à un trajet, vehiculeId={}",
+					vehiculeId);
 			throw new BusinessRuleException(
 					"Ce véhicule ne peut pas être supprimé car il est associé à un trajet."
 			);
 		}
 
 		vehiculeRepository.delete(vehicule);
+		log.info("Véhicule supprimé : vehiculeId={}, conducteurId={}",
+				vehiculeId, conducteurId);
 	}
 
 }
