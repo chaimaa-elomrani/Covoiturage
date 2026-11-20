@@ -2,8 +2,12 @@ package com.coisee.covoiturage.service.impl;
 
 import com.coisee.covoiturage.dto.pointarret.PointArretRequest;
 import com.coisee.covoiturage.dto.trajet.TrajetRequest;
+import com.coisee.covoiturage.dto.trajet.TrajetResponse;
 import com.coisee.covoiturage.entity.Conducteur;
+import com.coisee.covoiturage.entity.PointArret;
+import com.coisee.covoiturage.entity.Trajet;
 import com.coisee.covoiturage.entity.Vehicule;
+import com.coisee.covoiturage.enums.StatutTrajet;
 import com.coisee.covoiturage.exception.BusinessRuleException;
 import com.coisee.covoiturage.mapper.TrajetMapper;
 import com.coisee.covoiturage.repository.ConducteurRepository;
@@ -21,8 +25,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,5 +89,65 @@ class TrajetServiceImplTest {
         assertThatThrownBy(() -> trajetService.publish(request))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessage("L’heure de départ doit être dans le futur.");
+    }
+
+    @Test
+    void publishShouldSaveTripAndReturnAllSeatsAsAvailable() {
+        Conducteur conducteur = mock(Conducteur.class);
+        when(conducteur.getId()).thenReturn(7L);
+        when(conducteurRepository.findById(7L))
+                .thenReturn(Optional.of(conducteur));
+
+        Vehicule vehicule = mock(Vehicule.class);
+        when(vehicule.getCapacite()).thenReturn(4);
+        when(vehiculeRepository.findByIdAndConducteurId(2L, 7L))
+                .thenReturn(Optional.of(vehicule));
+
+        LocalDateTime depart = LocalDateTime.now().plusDays(1);
+
+        TrajetRequest request = new TrajetRequest(
+                7L,
+                2L,
+                3,
+                List.of(
+                        new PointArretRequest(
+                                "Rabat", 0, depart, BigDecimal.ZERO
+                        ),
+                        new PointArretRequest(
+                                "Casablanca", 1, depart.plusHours(1),
+                                new BigDecimal("40.00")
+                        )
+                )
+        );
+
+        Trajet trajet = mock(Trajet.class);
+        PointArret pointArret = mock(PointArret.class);
+
+        when(trajet.getPointsArret()).thenReturn(List.of(pointArret));
+        when(trajetMapper.toEntity(request)).thenReturn(trajet);
+        when(trajetRepository.save(trajet)).thenReturn(trajet);
+        when(trajet.getPlacesProposees()).thenReturn(3);
+
+        TrajetResponse expectedResponse = new TrajetResponse(
+                10L,
+                7L,
+                2L,
+                3,
+                3,
+                StatutTrajet.PUBLIE,
+                List.of()
+        );
+
+        when(trajetMapper.toResponse(trajet, 3))
+                .thenReturn(expectedResponse);
+
+        TrajetResponse actualResponse = trajetService.publish(request);
+
+        assertThat(actualResponse).isEqualTo(expectedResponse);
+        verify(trajetRepository).save(trajet);
+        verify(trajet).setConducteur(conducteur);
+        verify(trajet).setVehicule(vehicule);
+        verify(trajet).setStatut(StatutTrajet.PUBLIE);
+        verify(pointArret).setTrajet(trajet);
     }
 }
