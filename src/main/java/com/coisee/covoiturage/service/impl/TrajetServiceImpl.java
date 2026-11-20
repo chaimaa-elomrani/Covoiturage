@@ -6,7 +6,6 @@ import com.coisee.covoiturage.dto.trajet.TrajetRequest;
 import com.coisee.covoiturage.dto.trajet.TrajetResponse;
 import com.coisee.covoiturage.dto.trajet.TrajetSearchRequest;
 import com.coisee.covoiturage.entity.Conducteur;
-import com.coisee.covoiturage.entity.PointArret;
 import com.coisee.covoiturage.entity.Reservation;
 import com.coisee.covoiturage.entity.Trajet;
 import com.coisee.covoiturage.entity.Vehicule;
@@ -26,7 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -124,6 +122,9 @@ public class TrajetServiceImpl implements TrajetService {
 
     }
 
+
+
+
     @Override
     public TrajetResponse publish(TrajetRequest request) {
         Conducteur conducteur = conducteurRepository.findById(request.conducteurId())
@@ -136,6 +137,12 @@ public class TrajetServiceImpl implements TrajetService {
                         HttpStatus.FORBIDDEN,
                         "Ce véhicule n’appartient pas à ce conducteur."
                 ));
+
+        if (request.placesProposees() == null || request.placesProposees() < 1) {
+            throw new BusinessRuleException(
+                    "Le trajet doit proposer au moins une place."
+            );
+        }
 
         if (request.placesProposees() > vehicule.getCapacite()) {
             throw new BusinessRuleException(
@@ -156,23 +163,86 @@ public class TrajetServiceImpl implements TrajetService {
 
     }
 
+
+
+
     @Override
     public TrajetResponse findById(Long trajetId) {
-        return null;
+        Trajet trajet = trajetRepository.findById(trajetId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Trajet introuvable.")
+                );
+        Long placesReservees =
+                reservationRepository.sumNombrePlaceByTrajetIdAndStatus(
+                        trajetId,
+                        StatutReservation.CONFIRMEE
+                );
+        int placesRestantes =
+                trajet.getPlacesProposees() - placesReservees.intValue();
+
+        return trajetMapper.toResponse(trajet, placesRestantes);
     }
+
+
+
 
     @Override
     public Page<TrajetResponse> search(TrajetSearchRequest request, Pageable pageable) {
-        return null;
+        LocalDateTime debutJournee = request.dateDepart().atStartOfDay();
+        LocalDateTime lendemain = debutJournee.plusDays(1);
+
+        Page<Trajet> trajets = trajetRepository.search(
+                request.villeDepart().trim(),
+                request.villeArrivee().trim(),
+                debutJournee,
+                lendemain,
+                request.nombrePlaces(),
+                request.prixMax(),
+                StatutTrajet.PUBLIE,
+                StatutReservation.CONFIRMEE,
+                pageable
+        );
+        return trajets.map(trajet -> {
+                    Long placesReservees =
+                            reservationRepository.sumNombrePlaceByTrajetIdAndStatus(
+                                    trajet.getId(),
+                                    StatutReservation.CONFIRMEE
+                            );
+
+                    int placesRestantes =
+                            trajet.getPlacesProposees() - placesReservees.intValue();
+
+                    return trajetMapper.toResponse(trajet, placesRestantes);
+                });
     }
+
+
 
     @Override
     public void finish(Long trajetId, Long conducteurId) {
+        Trajet trajet = trouverTrajetDuConducteur(trajetId , conducteurId);
+        verifierTrajetModifiable(trajet);
+        if (trajet.getPointsArret().isEmpty()) {
+            throw new BusinessRuleException(
+                    "Le trajet ne contient aucun point d’arrêt."
+            );
+        }
 
+        LocalDateTime heureDepart = trajet.getPointsArret().get(0).getHeurePassage();
+
+        if (!LocalDateTime.now().isAfter(heureDepart)) {
+            throw new BusinessRuleException(
+                    "Le trajet ne peut être terminé qu’après son heure de départ."
+            );
+        }
+
+        trajet.setStatut(StatutTrajet.TERMINE);
     }
 
 
-    private Trajet findConducteurTrajet(Long trajetId , Long conducteurId){
+
+
+    private Trajet trouverTrajetDuConducteur(Long trajetId , Long conducteurId){
         Trajet trajet =  trajetRepository.findById(trajetId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Trajet introuvable.")
@@ -187,23 +257,23 @@ public class TrajetServiceImpl implements TrajetService {
         return trajet ;
     }
 
-    private TrajetResponse verifierTrajetModifiable(Trajet trajet){
-        Long placesReservees =
-                reservationRepository.sumNombrePlaceByTrajetIdAndStatus(
-                  trajet.getId(),
-                        StatutReservation.CONFIRMEE
 
-        );
-        int placesRestantes =
-                trajet.getPlacesProposees() -  placesReservees.intValue();
-        return trajetMapper.toResponse(trajet , placesRestantes);
+
+
+    private void verifierTrajetModifiable(Trajet trajet) {
+        if (trajet.getStatut() != StatutTrajet.PUBLIE
+                && trajet.getStatut() != StatutTrajet.COMPLET) {
+            throw new BusinessRuleException(
+                    "Seul un trajet publié ou complet peut être terminé ou annulé."
+            );
+        }
     }
 
 
 
     @Override
     public void cancel(Long trajetId, Long conducteurId) {
-        Trajet trajet = findConducteurTrajet(trajetId, conducteurId);
+        Trajet trajet = trouverTrajetDuConducteur(trajetId, conducteurId);
         verifierTrajetModifiable(trajet);
 
         List<Reservation> reservations = reservationRepository.findAllByTrajetId(trajetId);
