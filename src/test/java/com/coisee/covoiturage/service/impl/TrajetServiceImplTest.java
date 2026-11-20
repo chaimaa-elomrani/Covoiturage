@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -149,5 +150,43 @@ class TrajetServiceImplTest {
         verify(trajet).setVehicule(vehicule);
         verify(trajet).setStatut(StatutTrajet.PUBLIE);
         verify(pointArret).setTrajet(trajet);
+    }
+
+    @Test
+    void publishShouldRejectMoreSeatsThanVehicleCapacity() {
+        Conducteur conducteur = mock(Conducteur.class);
+        when(conducteur.getId()).thenReturn(7L);
+        when(conducteurRepository.findById(7L))
+                .thenReturn(Optional.of(conducteur));
+
+        Vehicule vehicule = mock(Vehicule.class);
+        when(vehicule.getCapacite()).thenReturn(4);
+        when(vehiculeRepository.findByIdAndConducteurId(2L, 7L))
+                .thenReturn(Optional.of(vehicule));
+
+        LocalDateTime depart = LocalDateTime.now().plusDays(1);
+
+        TrajetRequest request = new TrajetRequest(
+                7L,
+                2L,
+                5,
+                List.of(
+                        new PointArretRequest(
+                                "Rabat", 0, depart, BigDecimal.ZERO
+                        ),
+                        new PointArretRequest(
+                                "Casablanca", 1, depart.plusHours(1),
+                                new BigDecimal("40.00")
+                        )
+                )
+        );
+
+        assertThatThrownBy(() -> trajetService.publish(request))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessage(
+                        "Le nombre de places proposées dépasse la capacité du véhicule."
+                );
+
+        verifyNoInteractions(trajetRepository);
     }
 }
